@@ -7,7 +7,6 @@ data = data['elements']
 
 # delete all nontraversable paths
 oldid_newid = {0:0}
-c=0
 for ele in data:
     if ele['type'] == 'node':
         oldid_newid[ele['id']]=c
