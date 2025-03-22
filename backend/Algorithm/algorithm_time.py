@@ -64,7 +64,12 @@ surface_stats = {
         'challenging': 0.8 * 1.25,
         'accessible': 1.0 * 1.25,
         'steps':0.2 * 1.25,
-
+    },
+    'prosthetics_no_stairs': {
+        'difficult': 0.6 * 1.25,
+        'challenging': 0.8 * 1.25,
+        'accessible': 1.0 * 1.25,
+        'steps': 0.0,
     }
 }
 
@@ -145,28 +150,32 @@ def short_path(start_node, end_node, disability, default_surface):
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
-                            curr_dist[comb_diff][newtime].append((neighbour[0], node, diff, neighbour[1]))
+                            if (neighbour[1]=='steps' and comb_diff=='accessible'):
+                                comb_diff = 'challenging'
+                            curr_dist[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1]))
 
-    curr_dist = {
+    curr_dist2 = {
         'accessible': [[] for i in range(MAXNODE)],
         'challenging': [[] for i in range(MAXNODE)],
         'difficult': [[] for i in range(MAXNODE)],
     }
-    curr_dist['accessible'][0].append((end_node, -1, 'accessible', 'no info'))
+    curr_dist2['accessible'][0].append((end_node, -1, 'accessible', 'no info'))
 
     #dijkstra
     for time in range(MAXDIST):
         for diff in difficulties:
             if (distance_from_end[diff][start_node][0] != MAXDIST):
                 continue
-            for (node, prior_node, prior_diff, surface) in curr_dist[diff][time]:
+            for (node, prior_node, prior_diff, surface) in curr_dist2[diff][time]:
                 if distance_from_end[diff][node][0]>time:
                     distance_from_end[diff][node]= (time, prior_node, prior_diff, surface)
                     for neighbour in graph[node]:
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
-                            curr_dist[comb_diff][newtime].append((neighbour[0], node, diff, neighbour[1]))
+                            if (neighbour[1]=='steps'):
+                                comb_diff = get_worse_accessibility(comb_diff, 'challenging')
+                            curr_dist2[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1]))
 
     paths = {
         'accessible': {"time": distance_from_start['accessible'][end_node][0], "path": []},
@@ -221,12 +230,11 @@ def short_path(start_node, end_node, disability, default_surface):
             surface = distance_from_start[curr_diff][curr][3] 
             if (nextcurr != -1):
                 paths[diff]['path'].append((node_lat[nextcurr], node_lon[nextcurr], node_lat[curr], node_lon[curr], surface))
-            curr = distance_from_start[curr_diff][curr][1] 
+            curr = nextcurr
             curr_diff = distance_from_start[curr_diff][curr][2] 
         paths[diff]['path'].reverse()
 
     #stats on length of accessible, challenging, difficult part
-    #focus on stairs and accessibility score...
 
     with open("output_time_path.json", 'w') as outfile:
         json.dump(paths, outfile)
@@ -235,4 +243,4 @@ def short_path(start_node, end_node, disability, default_surface):
         json.dump(obstacle_assessment, outfile)
 
 if __name__ == "__main__":
-    short_path(1435424,378331, 'wheelchair', 'accessible')
+    short_path(1435424,378331, 'prosthetics', 'accessible')
