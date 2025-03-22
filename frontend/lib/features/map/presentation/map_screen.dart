@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/features/map/data/routing.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -13,9 +16,41 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  late MapboxMap mapboxMap;
-  PointAnnotationManager? pointAnnotationManager;
+  final formKey = GlobalKey<FormState>();
 
+  final TextEditingController startAddressController = TextEditingController();
+  final TextEditingController endAddressController = TextEditingController();
+
+  late MapboxMap mapboxMap;
+  late GeoJsonSource geoJsonSource;
+  PointAnnotationManager? pointAnnotationManager;
+  String mapData = "";
+
+  @override
+  void dispose() {
+    startAddressController.dispose();
+    endAddressController.dispose();
+    super.dispose();
+  }
+
+  // Initial Route GeoJSON
+  Map<String, dynamic> _initialRouteGeoJson() {
+    return {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [-122.420679, 37.772537],
+              [-122.425037, 37.778345]
+            ]
+          }
+        }
+      ]
+    };
+  }
 
   _onMapCreated(MapboxMap mapboxMap) async {
     this.mapboxMap = mapboxMap;
@@ -36,30 +71,77 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
     pointAnnotationManager =
     await mapboxMap.annotations.createPointAnnotationManager();
+    await mapboxMap.style.addSource(GeoJsonSource(id: "route-source", data: jsonEncode(_initialRouteGeoJson())));
 
-    // Load the image from assets
+    geoJsonSource = await mapboxMap.style.getSource("route-source") as GeoJsonSource;
 
-    try {
-      final ByteData bytes = await rootBundle.load('assets/images/icon.png');
-      final Uint8List imageData = bytes.buffer.asUint8List();
+    await mapboxMap.style.addLayer(LineLayer(id: "route-layer", sourceId: "route-source",
+      lineWidthExpression: [
+        'interpolate',
+        ['exponential', 1.5],
+        ['zoom'],
+        4.0,
+        6.0,
+        10.0,
+        7.0,
+        13.0,
+        9.0,
+        16.0,
+        3.0,
+        19.0,
+        7.0,
+        22.0,
+        21.0,
+      ],
+      lineBorderWidthExpression: [
+        'interpolate',
+        ['exponential', 1.5],
+        ['zoom'],
+        9.0,
+        1.0,
+        16.0,
+        3.0,
+      ],
+      lineColorExpression: [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8.0,
+        'rgb(51, 102, 255)',
+        11.0,
+        [
+          'coalesce',
+          ['get', 'route-color'],
+          'rgb(51, 102, 255)',
+        ],
+      ],
+    ));
+    //pointAnnotationManager =
+    //    await mapboxMap.annotations.createPointAnnotationManager();
 
-      // Create a PointAnnotationOptions
-      PointAnnotationOptions pointAnnotationOptions = PointAnnotationOptions(
-        //geometry: Point(coordinates: Position(-74.00913, 40.75183)), // Example coordinates
-        geometry: Point(
-          coordinates: Position(13.1292584, 52.3920919),
-        ), // Example coordinates
-        //iconColor: 50,
-        image: imageData,
-        iconSize: 3.0,
-      );
+    //// Load the image from assets
+    //final ByteData bytes = await rootBundle.load('assets/images/icon.png');
+    //final Uint8List imageData = bytes.buffer.asUint8List();
 
-      // Add the annotation to the map
-      pointAnnotationManager?.create(pointAnnotationOptions);
-    } catch (e) {
-    debugPrint("❌ Failed to load icon: $e");
-    }
+    //// Create a PointAnnotationOptions
+    //PointAnnotationOptions pointAnnotationOptions = PointAnnotationOptions(
+    //  //geometry: Point(coordinates: Position(-74.00913, 40.75183)), // Example coordinates
+    //  geometry: Point(
+    //    coordinates: Position(13.1292584, 52.3920919),
+    //  ), // Example coordinates
+    //  //iconColor: 50,
+    //  image: imageData,
+    //  iconSize: 3.0,
+    //);
 
+    // Add the annotation to the map
+    //pointAnnotationManager?.create(pointAnnotationOptions);
+  }
+
+  void _updateRoute() async {
+    print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5");
+    //String newGeoJsonData = jsonEncode(_newRouteGeoJson());
+    await geoJsonSource.updateGeoJSON(mapData);
   }
 
   _addRouteLine() async {
@@ -115,9 +197,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   _onStyleLoadedCallback(StyleLoadedEventData data) async {
-    final data = await rootBundle.loadString('assets/route.geojson');
-    await mapboxMap.style.addSource(GeoJsonSource(id: "line", data: data));
+    //final data = await rootBundle.loadString('assets/route.geojson');
+    await mapboxMap.style.addSource(GeoJsonSource(id: "line", data: mapData));
     await _addRouteLine();
+  }
+
+  _addLine() async {
+      await mapboxMap.style.addSource(GeoJsonSource(id: "linef", data: mapData));
+      await _addRouteLine();
   }
 
   _showBottomSheet() {
@@ -126,12 +213,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent, // ← Makes outer area see-through
       builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.only(
-            left: 16.0,
-            right: 16.0,
-            top: 24.0,
-            bottom: 16.0,
+        return Form(
+          key: formKey,
+          child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -152,6 +238,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               child: ListView(
                 children: [
                   TextField(
+                    controller: startAddressController,
                     decoration: InputDecoration(
                       hintText: "Start",
                       border: OutlineInputBorder(),
@@ -159,6 +246,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextField(
+                    controller: endAddressController,
                     decoration: InputDecoration(
                       hintText: "End",
                       border: OutlineInputBorder(),
@@ -174,8 +262,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           backgroundColor: Colors.grey.shade300,
                           foregroundColor: Colors.black,
                         ),
-                        onPressed: () {},
                         label: const Text("Navigation"),
+                        onPressed: () async {
+                          if (!(formKey.currentState?.validate() ?? false)) {
+                            return;
+                          }
+                          TextInput.finishAutofillContext();
+                          String startAddress = startAddressController.text.trim();
+                          String endAddress = endAddressController.text.trim();
+                          print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5");
+
+                          await ref.read(routingProvider.notifier).getRoute(startAddress, endAddress);
+                          _updateRoute();
+                        },
                       ),
                     ],
                   ),
@@ -183,7 +282,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
           ),
-        );
+        ),);
       },
     );
   }
@@ -192,9 +291,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final AsyncValue<String> routeData = ref.watch(routingProvider);
+    mapData = routeData.value ?? "";
+    print("####################\n$mapData\n#############");
+    _updateRoute();
 
-    // WidgetsFlutterBinding.ensureInitialized();
-
+    WidgetsFlutterBinding.ensureInitialized();
 
     // Pass your access token to MapboxOptions so you can load a map
     String ACCESS_TOKEN = dotenv.env['MAPBOX_TOKEN'] ?? "";
@@ -222,7 +324,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           _showBottomSheet();
         },
       ),
-      //bottomSheet: _showBottomSheet(),
       body: MapWidget(
         cameraOptions: camera,
         onMapCreated: _onMapCreated,
@@ -231,6 +332,3 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 }
-
-
-
