@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -15,28 +16,50 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   late MapboxMap mapboxMap;
   PointAnnotationManager? pointAnnotationManager;
 
+
   _onMapCreated(MapboxMap mapboxMap) async {
     this.mapboxMap = mapboxMap;
+    await Permission.location.request();
+
+    // Enable location component with 3D duck puck
+    await mapboxMap.location.updateSettings(
+      LocationComponentSettings(
+        enabled: true,
+        locationPuck: LocationPuck(
+          locationPuck3D: LocationPuck3D(
+            modelUri: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Embedded/Duck.gltf",
+            modelScale: [25, 25, 25], // Adjust scale as needed H
+            modelTranslation: [0.0, 0.0, 0.0],
+          ),
+        ),
+      ),
+    );
     pointAnnotationManager =
     await mapboxMap.annotations.createPointAnnotationManager();
 
     // Load the image from assets
-    final ByteData bytes = await rootBundle.load('assets/images/icon.png');
-    final Uint8List imageData = bytes.buffer.asUint8List();
 
-    // Create a PointAnnotationOptions
-    PointAnnotationOptions pointAnnotationOptions = PointAnnotationOptions(
-      //geometry: Point(coordinates: Position(-74.00913, 40.75183)), // Example coordinates
-      geometry: Point(
-        coordinates: Position(13.1292584, 52.3920919),
-      ), // Example coordinates
-      //iconColor: 50,
-      image: imageData,
-      iconSize: 3.0,
-    );
+    try {
+      final ByteData bytes = await rootBundle.load('assets/images/icon.png');
+      final Uint8List imageData = bytes.buffer.asUint8List();
 
-    // Add the annotation to the map
-    //pointAnnotationManager?.create(pointAnnotationOptions);
+      // Create a PointAnnotationOptions
+      PointAnnotationOptions pointAnnotationOptions = PointAnnotationOptions(
+        //geometry: Point(coordinates: Position(-74.00913, 40.75183)), // Example coordinates
+        geometry: Point(
+          coordinates: Position(13.1292584, 52.3920919),
+        ), // Example coordinates
+        //iconColor: 50,
+        image: imageData,
+        iconSize: 3.0,
+      );
+
+      // Add the annotation to the map
+      pointAnnotationManager?.create(pointAnnotationOptions);
+    } catch (e) {
+    debugPrint("❌ Failed to load icon: $e");
+    }
+
   }
 
   _addRouteLine() async {
@@ -99,23 +122,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   _showBottomSheet() {
     return showModalBottomSheet(
-      isScrollControlled: true,
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent, // ← Makes outer area see-through
       builder: (BuildContext context) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+          padding: const EdgeInsets.only(
+            left: 16.0,
+            right: 16.0,
+            top: 24.0,
+            bottom: 16.0,
           ),
-          child: SizedBox(
-            height: 250,
-            child: Center(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery
+                  .of(context)
+                  .viewInsets
+                  .bottom,
+              left: 16,
+              right: 16,
+              top: 24,
+            ),
+            child: SizedBox(
+              height: 250,
               child: ListView(
-                padding: EdgeInsets.only(
-                  left: 8.0,
-                  right: 8.0,
-                  top: 32.0,
-                  bottom: 16.0,
-                ),
                 children: [
                   TextField(
                     decoration: InputDecoration(
@@ -123,25 +157,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   TextField(
                     decoration: InputDecoration(
                       hintText: "End",
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   Row(
-                    //crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       ElevatedButton.icon(
-                        icon: Icon(Icons.navigation),
+                        icon: const Icon(Icons.navigation),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple.shade100,
+                          backgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.black,
                         ),
                         onPressed: () {},
-                        label: Text("Navigation"),
+                        label: const Text("Navigation"),
                       ),
                     ],
                   ),
@@ -154,17 +188,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    WidgetsFlutterBinding.ensureInitialized();
+
+    // WidgetsFlutterBinding.ensureInitialized();
+
 
     // Pass your access token to MapboxOptions so you can load a map
     String ACCESS_TOKEN = dotenv.env['MAPBOX_TOKEN'] ?? "";
+    if (ACCESS_TOKEN.isEmpty) {
+      debugPrint("❌ MAPBOX_TOKEN is missing! Did you load .env?");
+    }
+
+
     MapboxOptions.setAccessToken(ACCESS_TOKEN);
 
     // Define options for your camera
     CameraOptions camera = CameraOptions(
-      center: Point(coordinates: Position(13.1292584, 52.3920919)),
+      center: Point(coordinates: Position(13.1324002, 52.3938577)),
       zoom: 20,
       bearing: 0,
       pitch: 30,
@@ -173,7 +216,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // Run your application, passing your CameraOptions to the MapWidget
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue.shade200,
+        backgroundColor: Colors.grey.shade50,
         child: Icon(Icons.navigation_outlined, size: 35, color: Colors.black),
         onPressed: () {
           _showBottomSheet();
@@ -188,3 +231,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 }
+
+
+

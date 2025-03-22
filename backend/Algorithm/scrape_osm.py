@@ -28,3 +28,6 @@ if response.status_code == 200:
     print(data)  # Do something with the result
 else:
     print(f"Error: {response.status_code}")
+
+
+s
