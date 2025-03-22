@@ -7,6 +7,8 @@ MAXNODE = int(1e6)
 node_lat = []
 node_lon = []
 
+difficulties = ['accessible', 'challenging', 'difficult']
+
 surface_groups = {
     'asphalt': 'accessible',
     'cobblestone': 'difficult',
@@ -40,9 +42,17 @@ surface_stats = {
         'difficult': 0.6 * 1.25,
         'challenging': 0.8 * 1.25,
         'accessible': 1.0 * 1.25,
-        'steps':0.0,
+        'steps':0.2 * 1.25,
+
     }
 }
+
+def get_worse_accessibility(difficulty1, difficulty2):
+    if (difficulty1 == 'difficult' or difficulty2 == 'difficult'):
+        return 'difficult'
+    if (difficulty1 == 'challenging' or difficulty2 == 'challenging'):
+        return 'challenging'
+    return 'accessible'
 
 def dist(a,b, surface, disability):
     if surface_stats[disability][surface]==0.0:
@@ -62,8 +72,11 @@ def short_path(start_node, end_node, disability, default_surface):
     with open('data_compressed.json', 'r') as file:
         data = json.load(file)
     
-    distance_from_start = [(MAXDIST, -1) for i in range(MAXNODE)]
-    distance_from_end = [(MAXDIST, -1) for i in range(MAXNODE)]
+    distance_from_start = {
+        'accessible': [(MAXDIST, -1, 'accessible') for i in range(MAXNODE)],
+        'challenging': [(MAXDIST, -1, 'accessible') for i in range(MAXNODE)],
+        'difficult': [(MAXDIST, -1, 'accessible') for i in range(MAXNODE)],
+    }
     graph = [[] for i in range(MAXNODE)]
 
     for ele in data:
@@ -89,30 +102,48 @@ def short_path(start_node, end_node, disability, default_surface):
                     graph[ele2].append((prior_node, surface))
                 prior_node = ele2
 
-    curr_dist = [[] for i in range(MAXNODE)]
-    curr_dist[0].append((start_node, -1))
+    curr_dist = {
+        'accessible': [[] for i in range(MAXNODE)],
+        'challenging': [[] for i in range(MAXNODE)],
+        'difficult': [[] for i in range(MAXNODE)],
+    }
+    curr_dist['accessible'][0].append((start_node, -1, 'accessible'))
 
     #dijkstra
     for time in range(MAXDIST):
-        for (node, prior) in curr_dist[time]:
-            if distance_from_start[node][0]>time:
-                distance_from_start[node]= (time, prior)
-                for neighbour in graph[node]:
-                    newtime = time+dist(node, neighbour[0], neighbour[1], disability)
-                    if newtime < MAXDIST:
-                        curr_dist[newtime].append((neighbour[0], node))
+        for diff in difficulties:
+            for (node, prior_node, prior_diff) in curr_dist[diff][time]:
+                if distance_from_start[diff][node][0]>time:
+                    distance_from_start[diff][node]= (time, prior_node, prior_diff)
+                    for neighbour in graph[node]:
+                        newtime = time+dist(node, neighbour[0], neighbour[1], disability)
+                        if newtime < MAXDIST:
+                            comb_diff = get_worse_accessibility(diff, neighbour[1])
+                            curr_dist[comb_diff][newtime].append((neighbour[0], node, diff))
+
+
 
     #go through from the back to get the coordinates
-    print(distance_from_start[end_node])
+    paths = {
+        'accessible': {"time": distance_from_start['accessible'][end_node][0], "path": []},
+        'challenging': {"time": distance_from_start['challenging'][end_node][0], "path": []},
+        'difficult': {"time": distance_from_start['difficult'][end_node][0], "path": []}
+    }
+    if paths['accessible']['time']<paths['challenging']['time']:
+        paths['challenging'] = paths['accessible']
+    if paths['challenging']['time']<paths['difficult']['time']:
+        paths['difficult'] = paths['challenging']
 
-    time_path = {"time": distance_from_start[end_node][0], "path": []}
-    curr = end_node
-    while curr != -1:
-        time_path['path'].append((node_lat[curr], node_lon[curr]))
-        curr = distance_from_start[curr][1]
+    for diff in difficulties:
+        curr = end_node
+        curr_diff = diff
+        while curr != -1:
+            paths[curr_diff]['path'].append((node_lat[curr], node_lon[curr]))
+            curr = distance_from_start[diff][curr][1] 
+            curr_diff = distance_from_start[diff][curr][2] 
 
     with open("output_time_path.json", 'w') as outfile:
-        json.dump(time_path, outfile)
+        json.dump(paths, outfile)
 
 if __name__ == "__main__":
     short_path(1532,608, 'prosthetics', 'accessible')
