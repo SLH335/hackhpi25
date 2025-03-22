@@ -28,7 +28,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         locationPuck: LocationPuck(
           locationPuck3D: LocationPuck3D(
             modelUri: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Embedded/Duck.gltf",
-            modelScale: [40, 40, 40], // Adjust scale as needed
+            modelScale: [25, 25, 25], // Adjust scale as needed H
             modelTranslation: [0.0, 0.0, 0.0],
           ),
         ),
