@@ -50,6 +50,9 @@ surface_groups = {
     'grate': 'accessible',
     'sett':'challenging',
     'steps':'steps',
+    'challenging': 'challenging',
+    'accessable':'accessable',
+    'difficult':'difficult'
 }
 
 surface_stats = {
@@ -100,6 +103,12 @@ def short_path(start_node, end_node, disability, default_surface):
     # Open and read the JSON file
     with open('data_compressed.json', 'r') as file:
         data = json.load(file)
+
+    with open('graph.json', 'r') as file:
+        graph = json.load(file)
+
+    with open('stairs_and_uneven.json', 'r') as file:
+        stairs_and_uneven = json.load(file)
     
     distance_from_start = {
         'accessible': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
@@ -111,28 +120,11 @@ def short_path(start_node, end_node, disability, default_surface):
         'challenging': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
         'difficult': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
     }
-    graph = [[] for i in range(MAXNODE)]
 
     for ele in data:
         if (ele['type']=='node'):
             node_lat.append(ele['lat'])
             node_lon.append(ele['lon'])
-
-
-    #create graph from data
-    for ele in data:
-        if ele['type']=='way':  
-            surface = default_surface  
-            if ele['surface'] != 'no info':
-                type = ele['surface'].split(':')[0].split('/')[0].split(',')[0].split(';')[0].split('_')[0].split('=')[-1]
-                if (type in surface_groups):
-                    surface = surface_groups[type]
-            prior_node = -1
-            for ele2 in ele['nodes']:
-                if (prior_node>=0):
-                    graph[prior_node].append((ele2, surface))
-                    graph[ele2].append((prior_node, surface))
-                prior_node = ele2
 
     curr_dist = {
         'accessible': [[] for i in range(MAXNODE)],
@@ -150,18 +142,24 @@ def short_path(start_node, end_node, disability, default_surface):
                 if distance_from_start[diff][node][0]>time:
                     distance_from_start[diff][node]= (time, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps)
                     for neighbour in graph[node]:
+                        if (neighbour[1]=='no info'):
+                            neighbour[1] = default_surface
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
                             addmeter = lat_to_meter(neighbour[0], node)
+                            newsteps = steps
+                            newmeter_chal = meter_chal
+                            newmeter_diff = meter_diff
                             if (neighbour[1]=='steps'):
                                 comb_diff = get_worse_accessibility(comb_diff, 'challenging')
-                                steps += addmeter*4
-                            if (comb_diff=='challenging'):
+                                newsteps += addmeter*3
                                 meter_chal+=addmeter
-                            elif (comb_diff == 'difficult'):
+                            elif (neighbour[1]=='challenging'):
+                                meter_chal+=addmeter
+                            elif (neighbour[1] == 'difficult'):
                                 meter_diff+=addmeter
-                            curr_dist[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, meter_chal, meter_diff, steps))
+                            curr_dist[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, meter_chal, meter_diff, int(newsteps)))
 
     curr_dist2 = {
         'accessible': [[] for i in range(MAXNODE)],
@@ -178,21 +176,32 @@ def short_path(start_node, end_node, disability, default_surface):
             for (node, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps) in curr_dist2[diff][time]:
                 if distance_from_end[diff][node][0]>time:
                     distance_from_end[diff][node]= (time, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps)
-
                     for neighbour in graph[node]:
+                        if (neighbour[1]=='no info'):
+                            neighbour[1] = default_surface
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
+                            addmeter = lat_to_meter(neighbour[0], node)
+                            newsteps = steps
+                            newmeter_chal = meter_chal
+                            newmeter_diff = meter_diff
                             if (neighbour[1]=='steps'):
                                 comb_diff = get_worse_accessibility(comb_diff, 'challenging')
-                            curr_dist2[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, meter_chal, meter_diff, steps))
+                                newsteps += addmeter*3
+                                newmeter_chal+=addmeter
+                            elif (neighbour[1]=='challenging'):
+                                newmeter_chal+=addmeter
+                            elif (neighbour[1] == 'difficult'):
+                                newmeter_diff+=addmeter
+                            curr_dist2[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, newmeter_chal, newmeter_diff, int(newsteps)))
 
     paths = {
         'accessible': {
             "time": distance_from_start['accessible'][end_node][0],
             "meter_total": distance_from_start['accessible'][end_node][4],
             "meter_challenging": distance_from_start['accessible'][end_node][5],
-            "meter_difficultl": distance_from_start['accessible'][end_node][6],
+            "meter_difficult": distance_from_start['accessible'][end_node][6],
             "steps": distance_from_start['accessible'][end_node][7],
             "path": []
         },
@@ -200,7 +209,7 @@ def short_path(start_node, end_node, disability, default_surface):
             "time": distance_from_start['challenging'][end_node][0], 
             "meter_total": distance_from_start['challenging'][end_node][4],
             "meter_challenging": distance_from_start['challenging'][end_node][5],
-            "meter_difficultl": distance_from_start['challenging'][end_node][6],
+            "meter_difficult": distance_from_start['challenging'][end_node][6],
             "steps": distance_from_start['challenging'][end_node][7],
             "path": []
         },
@@ -208,7 +217,7 @@ def short_path(start_node, end_node, disability, default_surface):
             "time": distance_from_start['difficult'][end_node][0], 
             "meter_total": distance_from_start['difficult'][end_node][4],
             "meter_challenging": distance_from_start['difficult'][end_node][5],
-            "meter_difficultl": distance_from_start['difficult'][end_node][6],
+            "meter_difficult": distance_from_start['difficult'][end_node][6],
             "steps": distance_from_start['difficult'][end_node][7],
             "path": []
         }
@@ -229,8 +238,7 @@ def short_path(start_node, end_node, disability, default_surface):
         'difficult': {},
     }
 
-    for ele in data:
-        if ele['type']=='way':
+    for ele in stairs_and_uneven:
             begin = ele['nodes'][0]
             end = ele['nodes'][-1]
             for diff in difficulties:
@@ -256,6 +264,7 @@ def short_path(start_node, end_node, disability, default_surface):
     for diff in difficulties:
         curr = end_node
         curr_diff = diff
+
         while curr != -1:
             nextcurr = distance_from_start[curr_diff][curr][1] 
             surface = distance_from_start[curr_diff][curr][3] 
@@ -264,8 +273,6 @@ def short_path(start_node, end_node, disability, default_surface):
             curr = nextcurr
             curr_diff = distance_from_start[curr_diff][curr][2] 
         paths[diff]['path'].reverse()
-
-    #stats on length of accessible, challenging, difficult part
 
     with open("output_time_path.json", 'w') as outfile:
         json.dump(paths, outfile)
