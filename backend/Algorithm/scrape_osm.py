@@ -9,7 +9,7 @@ query = """
 [out:json][timeout:25];
 (
  (way["highway"](52.34081, 12.97565,52.68062, 13.70956);
-  - way["highway"~"motoway|trunk|primary|secondary|cycleway|bridleway"](52.34081, 12.97565,52.68062, 13.70956);
+- way["highway"~"motoway|trunk|primary|secondary|cycleway|bridleway"](52.34081, 12.97565,52.68062, 13.70956);
  );
  way["footway"](52.34081, 12.97565,52.68062, 13.70956);
 );
