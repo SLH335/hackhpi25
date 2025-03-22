@@ -142,15 +142,10 @@ def short_path(start_node, end_node, disability, default_surface):
             curr = distance_from_start[diff][curr][1] 
             curr_diff = distance_from_start[diff][curr][2] 
 
-<<<<<<< Updated upstream:Algorithm/algorithm_time.py
     with open("output_time_path.json", 'w') as outfile:
         json.dump(paths, outfile)
-=======
-    # with open("output_time_path.json", 'w') as outfile:
-    #    json.dump(time_path, outfile)
 
-    return time_path
->>>>>>> Stashed changes:backend/Algorithm/algorithm_time.py
+    return paths
 
 if __name__ == "__main__":
     short_path(1532,608, 'prosthetics', 'accessible')

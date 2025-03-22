@@ -34,7 +34,7 @@ def way():
         ]
     }
 
-    shortest_path = short_path(start, end)
+    shortest_path = short_path(start, end, "prosthetics", "challenging")
 
     for node in shortest_path["path"]:
         geoJson["features"][0]["geometry"]["coordinates"].append([node[1], node[0]])
