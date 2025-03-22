@@ -57,6 +57,8 @@ def full_way():
     start_node = int(find_near_address(startAddress))
     end_node = int(find_near_address(endAddress))
     
+    print(startAddress, endAddress)
+
     #print(str(start_node) + " " + str(end_node))
 
     short_path(start_node,end_node, 'prosthetics', 'accessible')

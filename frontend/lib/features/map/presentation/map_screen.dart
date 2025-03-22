@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/map/data/routing.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   final TextEditingController startAddressController = TextEditingController();
   final TextEditingController endAddressController = TextEditingController();
+
+  var difficulty = 'accessible';
 
   late MapboxMap mapboxMap;
   late GeoJsonSource geoJsonSource;
@@ -44,11 +48,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             "type": "LineString",
             "coordinates": [
               [-122.420679, 37.772537],
-              [-122.425037, 37.778345]
-            ]
-          }
-        }
-      ]
+              [-122.425037, 37.778345],
+            ],
+          },
+        },
+      ],
     };
   }
 
@@ -62,7 +66,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         enabled: true,
         locationPuck: LocationPuck(
           locationPuck3D: LocationPuck3D(
-            modelUri: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Embedded/Duck.gltf",
+            modelUri:
+                "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Embedded/Duck.gltf",
             modelScale: [25, 25, 25], // Adjust scale as needed H
             modelTranslation: [0.0, 0.0, 0.0],
           ),
@@ -70,52 +75,62 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     );
     pointAnnotationManager =
-    await mapboxMap.annotations.createPointAnnotationManager();
-    await mapboxMap.style.addSource(GeoJsonSource(id: "route-source", data: jsonEncode(_initialRouteGeoJson())));
+        await mapboxMap.annotations.createPointAnnotationManager();
+    await mapboxMap.style.addSource(
+      GeoJsonSource(
+        id: "route-source",
+        data: jsonEncode(_initialRouteGeoJson()),
+      ),
+    );
 
-    geoJsonSource = await mapboxMap.style.getSource("route-source") as GeoJsonSource;
+    geoJsonSource =
+        await mapboxMap.style.getSource("route-source") as GeoJsonSource;
 
-    await mapboxMap.style.addLayer(LineLayer(id: "route-layer", sourceId: "route-source",
-      lineWidthExpression: [
-        'interpolate',
-        ['exponential', 1.5],
-        ['zoom'],
-        4.0,
-        6.0,
-        10.0,
-        7.0,
-        13.0,
-        9.0,
-        16.0,
-        3.0,
-        19.0,
-        7.0,
-        22.0,
-        21.0,
-      ],
-      lineBorderWidthExpression: [
-        'interpolate',
-        ['exponential', 1.5],
-        ['zoom'],
-        9.0,
-        1.0,
-        16.0,
-        3.0,
-      ],
-      lineColorExpression: [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        8.0,
-        'rgb(51, 102, 255)',
-        11.0,
-        [
-          'coalesce',
-          ['get', 'route-color'],
-          'rgb(51, 102, 255)',
+    await mapboxMap.style.addLayer(
+      LineLayer(
+        id: "route-layer",
+        sourceId: "route-source",
+        lineWidthExpression: [
+          'interpolate',
+          ['exponential', 1.5],
+          ['zoom'],
+          4.0,
+          6.0,
+          10.0,
+          7.0,
+          13.0,
+          9.0,
+          16.0,
+          3.0,
+          19.0,
+          7.0,
+          22.0,
+          21.0,
         ],
-      ],
-    ));
+        lineBorderWidthExpression: [
+          'interpolate',
+          ['exponential', 1.5],
+          ['zoom'],
+          9.0,
+          1.0,
+          16.0,
+          3.0,
+        ],
+        lineColorExpression: [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          8.0,
+          'rgb(51, 102, 255)',
+          11.0,
+          [
+            'coalesce',
+            ['get', 'route-color'],
+            'rgb(51, 102, 255)',
+          ],
+        ],
+      ),
+    );
     //pointAnnotationManager =
     //    await mapboxMap.annotations.createPointAnnotationManager();
 
@@ -203,8 +218,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   _addLine() async {
-      await mapboxMap.style.addSource(GeoJsonSource(id: "linef", data: mapData));
-      await _addRouteLine();
+    await mapboxMap.style.addSource(GeoJsonSource(id: "linef", data: mapData));
+    await _addRouteLine();
   }
 
   _showBottomSheet() {
@@ -216,78 +231,150 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return Form(
           key: formKey,
           child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-            ),
             padding: EdgeInsets.only(
-              bottom: MediaQuery
-                  .of(context)
-                  .viewInsets
-                  .bottom,
-              left: 16,
-              right: 16,
-              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            child: SizedBox(
-              height: 250,
-              child: ListView(
-                children: [
-                  TextField(
-                    controller: startAddressController,
-                    decoration: InputDecoration(
-                      hintText: "Start",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: endAddressController,
-                    decoration: InputDecoration(
-                      hintText: "End",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.navigation),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade300,
-                          foregroundColor: Colors.black,
-                        ),
-                        label: const Text("Navigation"),
-                        onPressed: () async {
-                          if (!(formKey.currentState?.validate() ?? false)) {
-                            return;
-                          }
-                          TextInput.finishAutofillContext();
-                          String startAddress = startAddressController.text.trim();
-                          String endAddress = endAddressController.text.trim();
-                          print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5");
-
-                          await ref.read(routingProvider.notifier).getRoute(startAddress, endAddress);
-                          _updateRoute();
-                        },
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 24,
+              ),
+              child: SizedBox(
+                height: 300,
+                child: ListView(
+                  children: [
+                    TextField(
+                      controller: startAddressController,
+                      decoration: InputDecoration(
+                        hintText: "Start",
+                        border: OutlineInputBorder(),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: endAddressController,
+                      decoration: InputDecoration(
+                        hintText: "End",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.navigation),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade300,
+                            foregroundColor: Colors.black,
+                          ),
+                          label: const Text("Navigation"),
+                          onPressed: () async {
+                            if (!(formKey.currentState?.validate() ?? false)) {
+                              return;
+                            }
+                            TextInput.finishAutofillContext();
+                            String startAddress =
+                                startAddressController.text.trim();
+                            String endAddress =
+                                endAddressController.text.trim();
+                            print(
+                              "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5\n$startAddress\n$endAddress",
+                            );
+
+                            final Map<String, String> queryParameters = {
+                              'start': '$startAddress',
+                              'end': '$endAddress',
+                            };
+                            final response = await http.get(
+                              Uri.http(
+                                '82.140.0.126:5000',
+                                '/way/full',
+                                queryParameters,
+                              ),
+                            );
+
+                            mapData = jsonEncode(
+                              jsonDecode(response.body)[difficulty],
+                            );
+                            //if (jsonDecode(response.body)[difficulty]['time'] < 20000) {
+                            //  print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&" + response.body);
+                            //}
+                            _updateRoute();
+                          },
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ElevatedButton(
+                          style: ButtonStyle(
+                            backgroundColor:
+                                difficulty == 'accessible'
+                                    ? MaterialStateProperty.all<Color>(
+                                      Colors.green.shade200,
+                                    )
+                                    : MaterialStateProperty.all<Color>(
+                                      Colors.green.shade100,
+                                    ),
+                          ),
+                          onPressed: () {
+                            difficulty = 'accessible';
+                          },
+                          child: Text("Accessible"),
+                        ),
+                        ElevatedButton(
+                          style: ButtonStyle(
+                            backgroundColor:
+                                difficulty == 'challenging'
+                                    ? MaterialStateProperty.all<Color>(
+                                      Colors.amber.shade200,
+                                    )
+                                    : MaterialStateProperty.all<Color>(
+                                      Colors.amber.shade100,
+                                    ),
+                          ),
+                          onPressed: () {
+                            difficulty = 'challenging';
+                          },
+                          child: Text("Challenging"),
+                        ),
+                        ElevatedButton(
+                          style: ButtonStyle(
+                            backgroundColor:
+                                difficulty == 'difficult'
+                                    ? MaterialStateProperty.all<Color>(
+                                      Colors.red.shade200,
+                                    )
+                                    : MaterialStateProperty.all<Color>(
+                                      Colors.red.shade100,
+                                    ),
+                          ),
+                          onPressed: () {
+                            difficulty = 'difficult';
+                          },
+                          child: Text("Difficult"),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
-        ),);
+        );
       },
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -304,13 +391,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       debugPrint("❌ MAPBOX_TOKEN is missing! Did you load .env?");
     }
 
-
     MapboxOptions.setAccessToken(ACCESS_TOKEN);
 
     // Define options for your camera
     CameraOptions camera = CameraOptions(
       center: Point(coordinates: Position(13.1324002, 52.3938577)),
-      zoom: 20,
+      zoom: 15,
       bearing: 0,
       pitch: 30,
     );
