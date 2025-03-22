@@ -80,9 +80,7 @@ def get_worse_accessibility(difficulty1, difficulty2):
         return 'challenging'
     return 'accessible'
 
-def dist(a,b, surface, disability):
-    if surface_stats[disability][surface]==0.0:
-        return int(MAXDIST)
+def lat_to_meter(a, b):
     dLat = node_lat[a]- node_lat[b]
     dLon = node_lon[a]- node_lon[b]
     #coordinate to meter
@@ -91,7 +89,12 @@ def dist(a,b, surface, disability):
 
     e = np.sin(dLat/2) * np.sin(dLat/2) + np.cos(node_lat[a] * np.pi / 180) * np.cos(node_lat[b] * np.pi / 180) * np.sin(dLon/2) * np.sin(dLon/2)
     f = 2 * np.atan2(np.sqrt(e), np.sqrt(1-e))
-    return int(6371000*f/0.65/surface_stats[disability][surface])
+    return 6371000*f
+
+def dist(a,b, surface, disability):
+    if surface_stats[disability][surface]==0.0:
+        return int(MAXDIST)
+    return int(lat_to_meter(a, b)/0.65/surface_stats[disability][surface])
 
 def short_path(start_node, end_node, disability, default_surface):
     # Open and read the JSON file
@@ -99,14 +102,14 @@ def short_path(start_node, end_node, disability, default_surface):
         data = json.load(file)
     
     distance_from_start = {
-        'accessible': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
-        'challenging': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
-        'difficult': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
+        'accessible': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
+        'challenging': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
+        'difficult': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
     }
     distance_from_end = {
-        'accessible': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
-        'challenging': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
-        'difficult': [(MAXDIST, -1, 'accessible', 'no info') for i in range(MAXNODE)],
+        'accessible': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
+        'challenging': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
+        'difficult': [(MAXDIST, -1, 'accessible', 'no info', 0, 0, 0, 0) for i in range(MAXNODE)],
     }
     graph = [[] for i in range(MAXNODE)]
 
@@ -136,58 +139,86 @@ def short_path(start_node, end_node, disability, default_surface):
         'challenging': [[] for i in range(MAXNODE)],
         'difficult': [[] for i in range(MAXNODE)],
     }
-    curr_dist['accessible'][0].append((start_node, -1, 'accessible', 'no info'))
+    curr_dist['accessible'][0].append((start_node, -1, 'accessible', 'no info', 0, 0, 0, 0))
 
     #dijkstra
     for time in range(MAXDIST):
         for diff in difficulties:
             if (distance_from_start[diff][end_node][0] != MAXDIST):
                 continue
-            for (node, prior_node, prior_diff, surface) in curr_dist[diff][time]:
+            for (node, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps) in curr_dist[diff][time]:
                 if distance_from_start[diff][node][0]>time:
-                    distance_from_start[diff][node]= (time, prior_node, prior_diff, surface)
+                    distance_from_start[diff][node]= (time, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps)
                     for neighbour in graph[node]:
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
-                            if (neighbour[1]=='steps' and comb_diff=='accessible'):
-                                comb_diff = 'challenging'
-                            curr_dist[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1]))
+                            addmeter = lat_to_meter(neighbour[0], node)
+                            if (neighbour[1]=='steps'):
+                                comb_diff = get_worse_accessibility(comb_diff, 'challenging')
+                                steps += addmeter*4
+                            if (comb_diff=='challenging'):
+                                meter_chal+=addmeter
+                            elif (comb_diff == 'difficult'):
+                                meter_diff+=addmeter
+                            curr_dist[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, meter_chal, meter_diff, steps))
 
     curr_dist2 = {
         'accessible': [[] for i in range(MAXNODE)],
         'challenging': [[] for i in range(MAXNODE)],
         'difficult': [[] for i in range(MAXNODE)],
     }
-    curr_dist2['accessible'][0].append((end_node, -1, 'accessible', 'no info'))
+    curr_dist2['accessible'][0].append((end_node, -1, 'accessible', 'no info', 0, 0, 0, 0))
 
     #dijkstra
     for time in range(MAXDIST):
         for diff in difficulties:
             if (distance_from_end[diff][start_node][0] != MAXDIST):
                 continue
-            for (node, prior_node, prior_diff, surface) in curr_dist2[diff][time]:
+            for (node, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps) in curr_dist2[diff][time]:
                 if distance_from_end[diff][node][0]>time:
-                    distance_from_end[diff][node]= (time, prior_node, prior_diff, surface)
+                    distance_from_end[diff][node]= (time, prior_node, prior_diff, surface, meter_total, meter_chal, meter_diff, steps)
+
                     for neighbour in graph[node]:
                         newtime = time+dist(node, neighbour[0], neighbour[1], disability)
                         if newtime < MAXDIST:
                             comb_diff = get_worse_accessibility(diff, neighbour[1])
                             if (neighbour[1]=='steps'):
                                 comb_diff = get_worse_accessibility(comb_diff, 'challenging')
-                            curr_dist2[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1]))
+                            curr_dist2[comb_diff][newtime].append((neighbour[0], node, comb_diff, neighbour[1], meter_total+addmeter, meter_chal, meter_diff, steps))
 
     paths = {
-        'accessible': {"time": distance_from_start['accessible'][end_node][0], "path": []},
-        'challenging': {"time": distance_from_start['challenging'][end_node][0], "path": []},
-        'difficult': {"time": distance_from_start['difficult'][end_node][0], "path": []}
+        'accessible': {
+            "time": distance_from_start['accessible'][end_node][0],
+            "meter_total": distance_from_start['accessible'][end_node][4],
+            "meter_challenging": distance_from_start['accessible'][end_node][5],
+            "meter_difficultl": distance_from_start['accessible'][end_node][6],
+            "steps": distance_from_start['accessible'][end_node][7],
+            "path": []
+        },
+        'challenging': {
+            "time": distance_from_start['challenging'][end_node][0], 
+            "meter_total": distance_from_start['challenging'][end_node][4],
+            "meter_challenging": distance_from_start['challenging'][end_node][5],
+            "meter_difficultl": distance_from_start['challenging'][end_node][6],
+            "steps": distance_from_start['challenging'][end_node][7],
+            "path": []
+        },
+        'difficult': {
+            "time": distance_from_start['difficult'][end_node][0], 
+            "meter_total": distance_from_start['difficult'][end_node][4],
+            "meter_challenging": distance_from_start['difficult'][end_node][5],
+            "meter_difficultl": distance_from_start['difficult'][end_node][6],
+            "steps": distance_from_start['difficult'][end_node][7],
+            "path": []
+        }
     }
     if paths['accessible']['time']<paths['challenging']['time']:
-        paths['challenging']['time'] = paths['accessible']['time']
+        paths['challenging'] = paths['accessible']
         distance_from_start['challenging'] = distance_from_start['accessible']
         distance_from_end['challenging'] = distance_from_end['accessible']
     if paths['challenging']['time']<paths['difficult']['time']:
-        paths['difficult']['time'] = paths['challenging']['time']
+        paths['difficult'] = paths['challenging']
         distance_from_start['difficult'] = distance_from_start['challenging']
         distance_from_end['difficult'] = distance_from_end['challenging']
 
