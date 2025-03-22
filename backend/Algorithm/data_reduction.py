@@ -1,5 +1,6 @@
 import json
 
+<<<<<<< HEAD
 MAXNODE = int(2e6)
 
 surface_groups = {
@@ -79,6 +80,43 @@ def reduce():
     for ele in to_remove1:
         data.remove(ele)
 
+=======
+def reduce():
+    # Open and read the JSON file
+    with open('Algorithm/osm_data.json', 'r') as infile:
+        data = json.load(infile)
+    data = data['elements']
+
+    c=0
+
+    # delete all nontraversable paths
+    oldid_newid = {}
+    c=0
+    to_remove1 = []
+    for i in range(len(data)):
+        ele = data[i]
+        if ele['type'] == 'node':
+            oldid_newid[ele['id']]=c
+            ele['id'] = c
+            c+=1
+        elif ele['type']=='way':
+            if 'nodes' in ele:
+                to_remove = []
+                for i in range(len(ele['nodes'])):
+                    ele2 = ele['nodes'][i]
+                    if ele2 in oldid_newid:
+                        ele['nodes'][i] = oldid_newid[ele2]
+                    else:
+                        to_remove.append(ele2)
+                for rem_ele in to_remove:
+                    ele['nodes'].remove(rem_ele)
+                if len(ele['nodes'])==0:
+                    to_remove1.append(ele)
+
+    for ele in to_remove1:
+        data.remove(ele)
+
+>>>>>>> 4018a7a (Added start File)
     for i in range(len(data)):
         ele = data[i]
         if ele['type']=='way':
@@ -90,6 +128,7 @@ def reduce():
             data[i] = {'type':'way', 'id':ele['id'], 'surface':surface, 'nodes':ele['nodes']}
 
 
+<<<<<<< HEAD
     #print(oldid_newid[12670697443], oldid_newid[2513869310])        
 
     with open("Algorithm/json/data_compressed.json", "w") as outfile:
@@ -130,3 +169,9 @@ def reduce():
                     
                             
 
+=======
+    print(oldid_newid[12670697443], oldid_newid[2513869310])        
+
+    with open("Algorithm/data_compressed.json", "w") as outfile:
+        json.dump(data, outfile)
+>>>>>>> 4018a7a (Added start File)

@@ -40,6 +40,7 @@ out body;
 """
 
 def scrape():
+<<<<<<< HEAD
     # Send request
     response = requests.get(url, params={"data": smallerQuery})
 
@@ -59,6 +60,28 @@ def scrape():
     if response.status_code == 200:
         data = response.json()
         with open("Algorithm/json/house_data.json", "w", encoding="utf-8") as json_file:
+=======
+
+    # Send request
+    response = requests.get(url, params={"data": smallerQuery})
+
+    # Check response
+    if response.status_code == 200:
+        data = response.json()
+        with open("Algorithm/osm_data.json", "w", encoding="utf-8") as json_file:
+            json.dump(data, json_file, indent=4)
+        #print(data)  # Do something with the result
+    else:
+        print(f"Error: {response.status_code}")
+
+    # Send request
+    response = requests.get(url, params={"data": houseSmallQuery})
+
+    # Check response
+    if response.status_code == 200:
+        data = response.json()
+        with open("Algorithm/house_data.json", "w", encoding="utf-8") as json_file:
+>>>>>>> 4018a7a (Added start File)
             json.dump(data, json_file, indent=4)
         #print(data)  # Do something with the result
     else:
