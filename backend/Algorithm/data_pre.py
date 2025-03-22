@@ -13,7 +13,7 @@ out body;
 """
 
 def pre_houses():
-    with open("Algorithm/house_data.json", "r") as file:
+    with open("Algorithm/json/house_data.json", "r") as file:
         data = json.load(file)["elements"]
 
     newHouseJson = {}
@@ -36,15 +36,16 @@ def pre_houses():
 
         newHouseJson[currentAddress] = element["nodes"][0]
 
-    with open("Algorithm/houses.json", 'w', encoding="utf-8") as outfile:
+    with open("Algorithm/json/houses.json", 'w', encoding="utf-8") as outfile:
         json.dump(newHouseJson, outfile)
 
-    with open("Algorithm/houses_nodes.json", "w") as outfile:
+    with open("Algorithm/json/houses_nodes.json", "w") as outfile:
         json.dump(nodes, outfile)
 
 def pre_nodes():
-    with open("Algorithm/data.json") as file:
-        data = json.load(file)["elements"]
+    # use Simons node format
+    with open("Algorithm/json/data_compressed.json") as file:
+        data = json.load(file)
     
     nodes = {}
 
@@ -56,7 +57,7 @@ def pre_nodes():
                     "lon": element["lon"]
                 }      
 
-    with open("Algorithm/nodes.json", "w") as file:
+    with open("Algorithm/json/nodes.json", "w") as file:
         json.dump(nodes, file)
 
 def pre_calc():

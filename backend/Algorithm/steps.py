@@ -9,7 +9,7 @@ def getSteps():
         ]
     }
 
-    with open("Algorithm/data.json") as json_file:
+    with open("Algorithm/json/data.json") as json_file:
         data = json.load(json_file)
 
     nodes = {}

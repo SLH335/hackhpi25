@@ -44,86 +44,89 @@ surface_groups = {
     'steps':'steps',
 }
 
+def reduce():
 
-with open('osm_data.json', 'r') as infile:
-    data = json.load(infile)
-data = data['elements']
+    with open('Algorithm/json/osm_data.json', 'r') as infile:
+        data = json.load(infile)
+    data = data['elements']
 
-# delete all nontraversable paths
-oldid_newid = {}
-c=0
-to_remove1 = []
-for i in range(len(data)):
-    ele = data[i]
-    if ele['type'] == 'node':
-        oldid_newid[ele['id']]=c
-        ele['id'] = c
-        c+=1
-    elif ele['type']=='way':
-        if 'nodes' in ele:
-            to_remove = []
-            for i in range(len(ele['nodes'])):
-                ele2 = ele['nodes'][i]
-                if ele2 in oldid_newid:
-                    ele['nodes'][i] = oldid_newid[ele2]
-                else:
-                    to_remove.append(ele2)
-            for rem_ele in to_remove:
-                ele['nodes'].remove(rem_ele)
-            if len(ele['nodes'])==0:
-                to_remove1.append(ele)
+    c=0
 
-for ele in to_remove1:
-    data.remove(ele)
+    # delete all nontraversable paths
+    oldid_newid = {}
+    c=0
+    to_remove1 = []
+    for i in range(len(data)):
+        ele = data[i]
+        if ele['type'] == 'node':
+            oldid_newid[ele['id']]=c
+            ele['id'] = c
+            c+=1
+        elif ele['type']=='way':
+            if 'nodes' in ele:
+                to_remove = []
+                for i in range(len(ele['nodes'])):
+                    ele2 = ele['nodes'][i]
+                    if ele2 in oldid_newid:
+                        ele['nodes'][i] = oldid_newid[ele2]
+                    else:
+                        to_remove.append(ele2)
+                for rem_ele in to_remove:
+                    ele['nodes'].remove(rem_ele)
+                if len(ele['nodes'])==0:
+                    to_remove1.append(ele)
 
-for i in range(len(data)):
-    ele = data[i]
-    if ele['type']=='way':
-        surface = "no info"
-        if surface in ele['tags']:
-            surface = ele['tags']['surface']
-        if 'highway' in ele['tags'] and ele['tags']['highway']== 'steps':
-            surface = 'steps'
-        data[i] = {'type':'way', 'id':ele['id'], 'surface':surface, 'nodes':ele['nodes']}
+    for ele in to_remove1:
+        data.remove(ele)
+
+    for i in range(len(data)):
+        ele = data[i]
+        if ele['type']=='way':
+            surface = "no info"
+            if surface in ele['tags']:
+                surface = ele['tags']['surface']
+            if 'highway' in ele['tags'] and ele['tags']['highway']== 'steps':
+                surface = 'steps'
+            data[i] = {'type':'way', 'id':ele['id'], 'surface':surface, 'nodes':ele['nodes']}
 
 
-#print(oldid_newid[12670697443], oldid_newid[2513869310])        
+    #print(oldid_newid[12670697443], oldid_newid[2513869310])        
 
-with open("data_compressed.json", "w") as outfile:
-    json.dump(data, outfile)
+    with open("Algorithm/json/data_compressed.json", "w") as outfile:
+        json.dump(data, outfile)
 
-graph = [[] for i in range(MAXNODE)]
+    graph = [[] for i in range(MAXNODE)]
 
-for ele in data:
-    if ele['type']=='way':  
-        surface = "no info"  
-        if ele['surface'] != 'no info':
-            type = ele['surface'].split(':')[0].split('/')[0].split(',')[0].split(';')[0].split('_')[0].split('=')[-1]
-            if (type in surface_groups):
-                surface = surface_groups[type]
-        prior_node = -1
-        for ele2 in ele['nodes']:
-            if (prior_node>=0):
-                graph[prior_node].append((ele2, surface))
-                graph[ele2].append((prior_node, surface))
-            prior_node = ele2
+    for ele in data:
+        if ele['type']=='way':  
+            surface = "no info"  
+            if ele['surface'] != 'no info':
+                type = ele['surface'].split(':')[0].split('/')[0].split(',')[0].split(';')[0].split('_')[0].split('=')[-1]
+                if (type in surface_groups):
+                    surface = surface_groups[type]
+            prior_node = -1
+            for ele2 in ele['nodes']:
+                if (prior_node>=0):
+                    graph[prior_node].append((ele2, surface))
+                    graph[ele2].append((prior_node, surface))
+                prior_node = ele2
 
-with open("graph.json", "w") as outfile:
-    json.dump(graph, outfile)
+    with open("Algorithm/json/graph.json", "w") as outfile:
+        json.dump(graph, outfile)
 
-stairs_and_uneven = []
+    stairs_and_uneven = []
 
-for ele in data:
-    if ele['type']=='way':
-        if ele['surface']=='steps':    
-            stairs_and_uneven.append(ele)
-        elif ele['surface'] != 'no info':
-            type = ele['surface'].split(':')[0].split('/')[0].split(',')[0].split(';')[0].split('_')[0].split('=')[-1]
-            if (type in surface_groups and surface_groups[type]!='accessible'):
+    for ele in data:
+        if ele['type']=='way':
+            if ele['surface']=='steps':    
                 stairs_and_uneven.append(ele)
+            elif ele['surface'] != 'no info':
+                type = ele['surface'].split(':')[0].split('/')[0].split(',')[0].split(';')[0].split('_')[0].split('=')[-1]
+                if (type in surface_groups and surface_groups[type]!='accessible'):
+                    stairs_and_uneven.append(ele)
 
-with open("stairs_and_uneven.json", "w") as outfile:
-    json.dump(stairs_and_uneven, outfile)
-                
-                        
+    with open("Algorithm/json/stairs_and_uneven.json", "w") as outfile:
+        json.dump(stairs_and_uneven, outfile)
+                    
+                            
 

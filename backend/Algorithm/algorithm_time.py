@@ -101,13 +101,13 @@ def dist(a,b, surface, disability):
 
 def short_path(start_node, end_node, disability, default_surface):
     # Open and read the JSON file
-    with open('data_compressed.json', 'r') as file:
+    with open('Algorithm/json/data_compressed.json', 'r') as file:
         data = json.load(file)
 
-    with open('graph.json', 'r') as file:
+    with open('Algorithm/json/graph.json', 'r') as file:
         graph = json.load(file)
 
-    with open('stairs_and_uneven.json', 'r') as file:
+    with open('Algorithm/json/stairs_and_uneven.json', 'r') as file:
         stairs_and_uneven = json.load(file)
     
     distance_from_start = {
@@ -274,10 +274,10 @@ def short_path(start_node, end_node, disability, default_surface):
             curr_diff = distance_from_start[curr_diff][curr][2] 
         paths[diff]['path'].reverse()
 
-    with open("output_time_path.json", 'w') as outfile:
+    with open("Algorithm/json/output_time_path.json", 'w') as outfile:
         json.dump(paths, outfile)
     
-    with open("output_obstacle_assessment.json", 'w') as outfile:
+    with open("Algorithm/json/output_obstacle_assessment.json", 'w') as outfile:
         json.dump(obstacle_assessment, outfile)
 
 if __name__ == "__main__":
