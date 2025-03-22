@@ -294,7 +294,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final AsyncValue<String> routeData = ref.watch(routingProvider);
     mapData = routeData.value ?? "";
     print("####################\n$mapData\n#############");
-    _updateRoute();
+    //_updateRoute();
 
     WidgetsFlutterBinding.ensureInitialized();
 
